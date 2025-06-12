@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"[github.com/your-username/your-repo-name/backend/internal/auth](https://github.com/your-username/your-repo-name/backend/internal/auth)"
+	"github.com/mariopaath23/backend-jte-ticketing/internal/auth"
 )
 
 // Auth is a middleware that checks for a valid JWT.

@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"[github.com/your-username/your-repo-name/backend/internal/auth](https://github.com/your-username/your-repo-name/backend/internal/auth)"
-	"[github.com/your-username/your-repo-name/backend/internal/models](https://github.com/your-username/your-repo-name/backend/internal/models)"
+	"github.com/mariopaath23/backend-jte-ticketing/internal/auth"
+	"github.com/mariopaath23/backend-jte-ticketing/internal/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"

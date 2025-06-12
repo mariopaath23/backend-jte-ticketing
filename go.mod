@@ -1,4 +1,4 @@
-module jte-ticket-system-backend
+module "github.com/mariopaath23/backend-jte-ticketing"
 
 go 1.24.1
 

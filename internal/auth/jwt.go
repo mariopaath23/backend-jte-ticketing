@@ -3,8 +3,8 @@ package auth
 import (
 	"time"
 
-	"[github.com/your-username/your-repo-name/backend/internal/config](https://github.com/your-username/your-repo-name/backend/internal/config)"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/mariopaath23/backend-jte-ticketing/internal/config"
 )
 
 // Claims struct will be encoded to a JWT.
