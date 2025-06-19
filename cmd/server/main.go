@@ -1,3 +1,4 @@
+// File: cmd/server/main.go
 package main
 
 import (
@@ -5,47 +6,66 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/mariopaath23/backend-jte-ticketing/internal/config"
 	"github.com/mariopaath23/backend-jte-ticketing/internal/database"
-	"github.com/mariopaath23/backend-jte-ticketing/internal/handlers"
+	apphandlers "github.com/mariopaath23/backend-jte-ticketing/internal/handlers"
 	"github.com/mariopaath23/backend-jte-ticketing/internal/middleware"
 )
 
 func main() {
 	cfg, err := config.LoadConfig(".")
 	if err != nil {
-		log.Fatalf("config loading failed: %v", err)
+		log.Fatalf("could not load config: %v", err)
 	}
 
-	// Connect to MongoDB
+	// --- DIAGNOSTIC LOGGING ---
+	// Log the database connection details to help debug connection issues.
+	log.Println("---------------------------------------------------------")
+	log.Printf("Attempting to connect to MongoDB URI: %s", cfg.MongoURI)
+	log.Printf("Targeting Database: %s", cfg.MongoDatabase)
+	log.Println("---------------------------------------------------------")
+
 	db, err := database.Connect(cfg.MongoURI, cfg.MongoDatabase)
 	if err != nil {
-		log.Fatalf("could not connect to database: %v", err)
+		log.Fatalf("FATAL: Could not connect to database: %v", err)
 	}
-	// The user handler needs access to the database
-	userHandler := handlers.NewUserHandler(db)
+	log.Println("SUCCESS: Connection to MongoDB established.")
 
-	// Create a new router
+	// Initialize all handlers
+	userHandler := apphandlers.NewUserHandler(db)
+	statusHandler := apphandlers.NewStatusHandler(db)
+	announcementHandler := apphandlers.NewAnnouncementHandler(db)
+	catalogHandler := apphandlers.NewCatalogHandler(db)
+	reservationHandler := apphandlers.NewReservationHandler(db)
+
 	r := mux.NewRouter()
-
-	// Create a subrouter for API endpoints
 	api := r.PathPrefix("/api").Subrouter()
 
-	// Public routes (no authentication required)
+	// --- Public Routes ---
 	api.HandleFunc("/register", userHandler.Register).Methods("POST")
 	api.HandleFunc("/login", userHandler.Login).Methods("POST")
+	api.HandleFunc("/logout", userHandler.Logout).Methods("POST")
+	api.HandleFunc("/status/rooms", statusHandler.GetRooms).Methods("GET")
+	api.HandleFunc("/status/inventory", statusHandler.GetInventoryRequests).Methods("GET")
+	api.HandleFunc("/announcements", announcementHandler.GetAnnouncements).Methods("GET")
+	api.HandleFunc("/catalog/search", catalogHandler.SearchCatalog).Methods("GET")
+	api.HandleFunc("/catalog/room/{id}", catalogHandler.GetRoomByID).Methods("GET")
 
-	// Protected route - requires JWT authentication
-	// We wrap the handler with our authentication middleware
-	api.Handle("/protected", middleware.Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"message": "This is a protected route! You are authenticated."}`))
-	}))).Methods("GET")
+	// --- Protected Routes ---
+	api.Handle("/reservations", middleware.Auth(http.HandlerFunc(reservationHandler.CreateReservation))).Methods("POST")
+	api.Handle("/validate-token", middleware.Auth(http.HandlerFunc(userHandler.ValidateToken))).Methods("GET")
+	api.Handle("/login-logs", middleware.Auth(http.HandlerFunc(userHandler.GetLoginLogs))).Methods("GET")
 
-	// Start the server
+	// --- CORS Configuration ---
+	allowedOrigins := handlers.AllowedOrigins([]string{"http://localhost:3000"})
+	allowedMethods := handlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
+	allowedHeaders := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization", "Credentials"})
+	allowCredentials := handlers.AllowCredentials()
+
 	port := cfg.APIPort
 	fmt.Printf("Server starting on port %s...\n", port)
-	log.Fatal(http.ListenAndServe(":"+port, r))
+
+	log.Fatal(http.ListenAndServe(":"+port, handlers.CORS(allowedOrigins, allowedMethods, allowedHeaders, allowCredentials)(r)))
 }

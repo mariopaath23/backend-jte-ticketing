@@ -5,17 +5,20 @@ import (
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/mariopaath23/backend-jte-ticketing/internal/config"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // Claims struct will be encoded to a JWT.
 // We add jwt.RegisteredClaims as an embedded type, to provide fields like expiry.
 type Claims struct {
-	Email string `json:"email"`
+	UserID primitive.ObjectID `json:"user_id"`
+	Email  string             `json:"email"`
+	Role   string             `json:"role"`
 	jwt.RegisteredClaims
 }
 
 // GenerateJWT creates a new JWT token for a given email.
-func GenerateJWT(email string) (string, error) {
+func GenerateJWT(userID primitive.ObjectID, email, role string) (string, error) {
 	cfg, err := config.LoadConfig(".")
 	if err != nil {
 		return "", err
@@ -26,7 +29,9 @@ func GenerateJWT(email string) (string, error) {
 
 	// Create the claims
 	claims := &Claims{
-		Email: email,
+		UserID: userID,
+		Email:  email,
+		Role:   role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 		},
@@ -44,7 +49,7 @@ func GenerateJWT(email string) (string, error) {
 	return tokenString, nil
 }
 
-// ValidateJWT checks if the token is valid.
+// ValidateJWT checks if the token is valid and returns the claims.
 func ValidateJWT(tokenString string) (*Claims, error) {
 	cfg, err := config.LoadConfig(".")
 	if err != nil {
@@ -54,7 +59,6 @@ func ValidateJWT(tokenString string) (*Claims, error) {
 	claims := &Claims{}
 
 	// Parse the JWT string and store the result in `claims`.
-	// Note that we are passing the key in []byte format, which is required by my signing method
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 		return []byte(cfg.JWTSecretKey), nil
 	})

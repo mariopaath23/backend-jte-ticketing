@@ -1,9 +1,10 @@
-module "github.com/mariopaath23/backend-jte-ticketing"
+module github.com/mariopaath23/backend-jte-ticketing
 
 go 1.24.1
 
 require (
 	github.com/golang-jwt/jwt/v5 v5.2.1
+	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/mux v1.8.1
 	github.com/joho/godotenv v1.5.1
 	go.mongodb.org/mongo-driver v1.17.4
@@ -22,4 +23,7 @@ require (
 	golang.org/x/text v0.17.0
 )
 
-require github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
+require (
+	github.com/felixge/httpsnoop v1.0.3 // indirect
+	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
+)

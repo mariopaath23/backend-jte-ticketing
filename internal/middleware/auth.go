@@ -1,45 +1,62 @@
 package middleware
 
 import (
+	"context"
+	"log"
 	"net/http"
 	"strings"
 
 	"github.com/mariopaath23/backend-jte-ticketing/internal/auth"
 )
 
-// Auth is a middleware that checks for a valid JWT.
+// UserClaimsKey is the type for our context key. Using a custom type
+// prevents collisions with other context keys.
+type UserClaimsKey string
+
+// ClaimsKey is the exported constant that we will use across our application
+// to access the user claims in the context.
+const ClaimsKey UserClaimsKey = "userClaims"
+
+// Auth is a middleware that checks for a valid JWT from either a cookie or Authorization header.
 func Auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// We can get the token from the Authorization header
-		// The header will be in the format `Bearer <token>`
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			// Alternatively, try to get it from a cookie
-			cookie, err := r.Cookie("token")
-			if err != nil {
+		tokenString := ""
+
+		// 1. Try to get the token from the HttpOnly cookie first.
+		cookie, err := r.Cookie("token")
+		if err == nil {
+			tokenString = cookie.Value
+		}
+
+		// 2. If no cookie, try to get it from the Authorization header.
+		if tokenString == "" {
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" {
+				log.Println("Auth Error: No token found in cookie or Authorization header")
 				http.Error(w, "Missing authorization token", http.StatusUnauthorized)
 				return
 			}
-			authHeader = "Bearer " + cookie.Value
+			parts := strings.Split(authHeader, " ")
+			if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+				log.Println("Auth Error: Invalid Authorization header format")
+				http.Error(w, "Invalid authorization header format", http.StatusUnauthorized)
+				return
+			}
+			tokenString = parts[1]
 		}
 
-		// Split the header to get the token part
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-			http.Error(w, "Invalid authorization header format", http.StatusUnauthorized)
-			return
-		}
-
-		tokenString := parts[1]
-
-		// Validate the token
-		_, err := auth.ValidateJWT(tokenString)
+		// 3. Validate the token we found.
+		claims, err := auth.ValidateJWT(tokenString)
 		if err != nil {
+			log.Printf("Auth Error: Token validation failed. Error: %v", err)
 			http.Error(w, "Invalid or expired token", http.StatusUnauthorized)
 			return
 		}
 
-		// If the token is valid, call the next handler
-		next.ServeHTTP(w, r)
+		// 4. If the token is valid, add claims to the request context using our exported key.
+		ctx := context.WithValue(r.Context(), ClaimsKey, claims)
+
+		// 5. Call the next handler in the chain.
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
